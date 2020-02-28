@@ -4,7 +4,7 @@
 
 #include <CL/opencl.h>
 
-#ifndef CHECH_ERR
+#ifndef CHECK_ERR
 #define CHECK_ERR(intro, result, exit_label)        \
 do {                                                \
     if ((result) < 0)                               \
