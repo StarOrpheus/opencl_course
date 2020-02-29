@@ -4,3 +4,5 @@ __kernel void a_plus_b(__global const int* const a,
 {
     *c = *a + *b;
 }
+
+
