@@ -14,3 +14,6 @@ target_link_libraries(opencl_fun_array_sum OpenCL)
 
 add_executable(opencl_fun_gemm1 gemm1.c)
 target_link_libraries(opencl_fun_gemm1 OpenCL)
+
+add_executable(opencl_fun_gemm2 gemm2.c)
+target_link_libraries(opencl_fun_gemm2 OpenCL)
