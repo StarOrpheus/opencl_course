@@ -8,3 +8,7 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra")
 
 add_executable(opencl_fun_a_plus_b main_a_plus_b.c)
 target_link_libraries(opencl_fun_a_plus_b OpenCL)
+
+add_executable(opencl_fun_array_sum main_array_sum.c)
+target_link_libraries(opencl_fun_array_sum OpenCL)
+
