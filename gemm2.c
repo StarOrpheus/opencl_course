@@ -20,16 +20,16 @@ do {                                                \
 
 int main()
 {
-    size_t const n = 1000;
-    size_t const m = 1002;
-    size_t const k = 1005;
+    size_t n = 1000;
+    size_t m = 1001;
+    size_t k = 1002;
 
     size_t const array_mem_sz1 = n * m * sizeof(float);
     size_t const array_mem_sz2 = m * k * sizeof(float);
     size_t const array_mem_sz3 = n * k * sizeof(float);
 
-    char const* const kernel_file_name = "gemm1.cl";
-    char const* const kernel_name = "gemm1";
+    char const* const kernel_file_name = "gemm2.cl";
+    char const* const kernel_name = "gemm2";
     size_t const file_load_sz = 1024 * 16;
 
     float* const a = (float*) malloc(array_mem_sz1);
@@ -49,7 +49,7 @@ int main()
     CHECK_ERR("Error getting platforms list", error_code, exit0);
 
     cl_platform_id * const platforms
-            = (cl_platform_id *) malloc(num_platforms * sizeof(cl_platform_id));
+        = (cl_platform_id *) malloc(num_platforms * sizeof(cl_platform_id));
 
     error_code = clGetPlatformIDs(num_platforms, platforms, &num_platforms);
     CHECK_ERR("Error getting platforms list", error_code, exit1);
@@ -62,7 +62,7 @@ int main()
     CHECK_ERR("Error getting device list", error_code, exit1);
 
     cl_device_id * const gpu_devices
-            = (cl_device_id *) malloc(num_devices * sizeof(cl_device_id));
+        = (cl_device_id *) malloc(num_devices * sizeof(cl_device_id));
 
     error_code = clGetDeviceIDs (
             platforms[0], CL_DEVICE_TYPE_GPU,
@@ -156,7 +156,7 @@ int main()
     clSetKernelArg(kernel, 5, sizeof(cl_uint), &k);
 
     size_t work_offset = 0;
-    size_t work_size[] = {k, n};
+    size_t work_size[] = {n, k};
     cl_event run_event;
     clEnqueueNDRangeKernel(queue, kernel, 2, &work_offset, work_size, 0, 0, 0, &run_event);
     clEnqueueReadBuffer(queue, mem3, true, 0, array_mem_sz3, c, 0, 0, 0);
@@ -166,7 +166,7 @@ int main()
         float* const gold = (float*) malloc(array_mem_sz3);
         memset(gold, 0, array_mem_sz3);
 
-#pragma omp parallel for
+        #pragma omp parallel for
         for (size_t i = 0; i < n; ++i)
             for (size_t j = 0; j < m; ++j)
                 for (size_t l = 0; l < k; ++l)
@@ -184,13 +184,13 @@ int main()
 
     printf("%lu ns elapsed\n", t_end - t_start);
 
-    exit3:
+exit3:
     free(program_code);
-    exit2:
+exit2:
     free(gpu_devices);
-    exit1:
+exit1:
     free(platforms);
-    exit0:
+exit0:
     free(a);
     free(b);
     free(c);
