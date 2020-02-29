@@ -1,4 +1,4 @@
-__kernel void gemm1(__global float const* const a,
+__kernel void gemm2(__global float const* const a,
                         __global float const* const b,
                         __global int* const c,
                         uint const n,
