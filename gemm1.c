@@ -1,6 +1,7 @@
 #include <stdbool.h>
 #include <assert.h>
 #include <stdio.h>
+#include <math.h>
 #include <string.h>
 
 #include <omp.h>
@@ -16,6 +17,13 @@ do {                                                \
     }                                               \
 } while (false)
 #endif
+
+static inline
+void fill_array(float* ptr, size_t cnt)
+{
+    for (size_t i = 0; i < cnt; ++i)
+        ptr[i] = (float) i / cnt;
+}
 
 
 int main()
@@ -35,6 +43,9 @@ int main()
     float* const a = (float*) malloc(array_mem_sz1);
     float* const b = (float*) malloc(array_mem_sz2);
     float* const c = (float*) malloc(array_mem_sz3);
+
+    fill_array(a, n * m);
+    fill_array(b, m * k);
 
     if (!a || !b || !c)
     {
@@ -145,8 +156,10 @@ int main()
     cl_mem mem3 = clCreateBuffer(context, CL_MEM_READ_WRITE, array_mem_sz3, 0, &error_code);
     CHECK_ERR("Error creating buffer", error_code, exit3);
 
-    clEnqueueWriteBuffer(queue, mem1, false, 0, array_mem_sz1, a, 0, 0, 0);
-    clEnqueueWriteBuffer(queue, mem2, false, 0, array_mem_sz2, b, 0, 0, 0);
+    error_code = clEnqueueWriteBuffer(queue, mem1, false, 0, array_mem_sz1, a, 0, 0, 0);
+    CHECK_ERR("clEnqueueWriteBuffer error", error_code, exit3);
+    error_code = clEnqueueWriteBuffer(queue, mem2, false, 0, array_mem_sz2, b, 0, 0, 0);
+    CHECK_ERR("clEnqueueWriteBuffer error", error_code, exit3);
 
     clSetKernelArg(kernel, 0, sizeof(cl_mem), &mem1);
     clSetKernelArg(kernel, 1, sizeof(cl_mem), &mem2);
@@ -155,11 +168,18 @@ int main()
     clSetKernelArg(kernel, 4, sizeof(cl_uint), &m);
     clSetKernelArg(kernel, 5, sizeof(cl_uint), &k);
 
-    size_t work_offset = 0;
+    size_t work_offset[] = {0, 0};
     size_t work_size[] = {n, k};
     cl_event run_event;
-    clEnqueueNDRangeKernel(queue, kernel, 2, &work_offset, work_size, 0, 0, 0, &run_event);
+    clEnqueueNDRangeKernel(queue, kernel, 2, work_offset, work_size, 0, 0, 0, &run_event);
+    memset(c, 0, array_mem_sz3);
     clEnqueueReadBuffer(queue, mem3, true, 0, array_mem_sz3, c, 0, 0, 0);
+
+    cl_ulong t_start = 0, t_end = 0;
+    clGetEventProfilingInfo(run_event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &t_start, 0);
+    clGetEventProfilingInfo(run_event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &t_end, 0);
+
+    printf("%lu ns elapsed\n", t_end - t_start);
 
 #ifndef NDEBUG
     {
@@ -172,18 +192,19 @@ int main()
                 for (size_t l = 0; l < k; ++l)
                     gold[i * k + l] += a[i * m + j] * b[j * k + l];
 
+        fflush(stdout);
+
         for (size_t i = 0; i < n; ++i)
+        {
             for (size_t l = 0; l < k; ++l)
-                assert(gold[i * k + l] == c[i * k + l]);
+            {
+                float delta = gold[i * k + l] - c[i * k + l];
+                float abs_delta = fabsf(delta);
+                assert(abs_delta < 0.001);
+            }
+        }
     }
 #endif
-
-    cl_ulong t_start = 0, t_end = 0;
-    clGetEventProfilingInfo(run_event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &t_start, 0);
-    clGetEventProfilingInfo(run_event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &t_end, 0);
-
-    printf("%lu ns elapsed\n", t_end - t_start);
-
 exit3:
     free(program_code);
 exit2:
