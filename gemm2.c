@@ -33,9 +33,9 @@ int main()
     size_t const tile_size = 32;
 
     /// n, m, k are expected to be divisible by tile_size.
-    size_t const n = 1024;
-    size_t const m = 1024 + 32;
-    size_t const k = 1024 + 64;
+    size_t const n = 2048;
+    size_t const m = 2048 + 32;
+    size_t const k = 2048 + 64;
 
     size_t const array_mem_sz1 = n * m * sizeof(float);
     size_t const array_mem_sz2 = m * k * sizeof(float);

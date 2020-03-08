@@ -28,9 +28,9 @@ void fill_array(float* ptr, size_t cnt)
 
 int main()
 {
-    size_t const n = 1000;
-    size_t const m = 1001;
-    size_t const k = 1002;
+    size_t const n = 2048;
+    size_t const m = 2048 + 32;
+    size_t const k = 2048 + 64;
 
     size_t const array_mem_sz1 = n * m * sizeof(float);
     size_t const array_mem_sz2 = m * k * sizeof(float);
