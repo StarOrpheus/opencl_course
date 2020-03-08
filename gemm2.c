@@ -12,6 +12,7 @@
 do {                                                \
     if ((result) < 0)                               \
     {                                               \
+        fprintf(stderr, "%s: %d", intro, result);   \
         exit_code = -1;                             \
         goto exit_label;                            \
     }                                               \
@@ -172,6 +173,7 @@ int main()
     size_t work_size[] = {k, n};
     cl_event run_event;
     clEnqueueNDRangeKernel(queue, kernel, 2, work_offset, work_size, 0, 0, 0, &run_event);
+    CHECK_ERR("Error enquing kernel", error_code, exit3);
     clEnqueueReadBuffer(queue, mem3, true, 0, array_mem_sz3, c, 0, 0, 0);
 
     cl_ulong t_start = 0, t_end = 0;
