@@ -20,3 +20,6 @@ target_link_libraries(opencl_fun_gemm2 OpenCL)
 
 add_executable(opencl_fun_gemm3 gemm3.c)
 target_link_libraries(opencl_fun_gemm3 OpenCL)
+
+add_executable(opencl_fun_gemm4 gemm4.c)
+target_link_libraries(opencl_fun_gemm4 OpenCL)
