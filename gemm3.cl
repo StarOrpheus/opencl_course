@@ -12,8 +12,8 @@ __kernel void gemm3(__global float const* const a,      /** a: matrix [N x M] */
     uint const tile_i       = get_local_id(1);          //!< Row id in the current tile
     uint const tile_j       = get_local_id(0);          //!< Col id in the current tile
 
-    local float A_sub[TILE_SIZE][TILE_SIZE];
-    local float B_sub[TILE_SIZE][TILE_SIZE];
+    local float A_sub[TILE_SIZE][TILE_SIZE];    //!< Local buffer for subtiles from the first input matrix
+    local float B_sub[TILE_SIZE][TILE_SIZE];    //!< Local buffer for subtiles from the second input matrix
 
     float local_sum         = 0;
     uint const tile_cnt     = m / TILE_SIZE;

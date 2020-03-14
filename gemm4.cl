@@ -1,6 +1,3 @@
-#define TILE_SIZE 32
-#define ELEMS_PER_THREAD 4
-
 __kernel void gemm4(__global float const* const a,      /** a: matrix [N x M] */
                     __global float const* const b,      /** b: matrix [M x K] */
                     __global float* const c,            /** c: matrix [N x K] */
@@ -13,8 +10,8 @@ __kernel void gemm4(__global float const* const a,      /** a: matrix [N x M] */
     uint const tile_i       = get_local_id(1) * ELEMS_PER_THREAD;       //!< First row id in the current tile
     uint const tile_j       = get_local_id(0);                          //!< Col id in the current tile
 
-    local float A_sub[TILE_SIZE][TILE_SIZE];
-    local float B_sub[TILE_SIZE][TILE_SIZE];
+    local float A_sub[TILE_SIZE][TILE_SIZE];    //!< Local buffer for subtiles from the first input matrix
+    local float B_sub[TILE_SIZE][TILE_SIZE];    //!< Local buffer for subtiles from the second input matrix
 
     float local_sum[ELEMS_PER_THREAD];
     for (uint i = 0; i < ELEMS_PER_THREAD; ++i)
