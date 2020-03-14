@@ -187,7 +187,7 @@ int main()
     clGetEventProfilingInfo(run_event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &t_start, 0);
     clGetEventProfilingInfo(run_event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &t_end, 0);
 
-    printf("%lu ns elapsed\n", t_end - t_start);
+    printf("%Lf µs elapsed\n", (t_end - t_start) / (long double) 1000);
 
 #ifndef NDEBUG
     {
