@@ -67,7 +67,19 @@ struct gpu_context
 /// Destructor for \ref gpu_context
 void release_gpu_context(struct gpu_context* context)
 {
-// todo
+    if (context->selected_device)
+        clReleaseDevice(context->selected_device);
+    if (context->program)
+        clReleaseProgram(context->program);
+    if (context->fst_mattr_buff_in)
+        clReleaseMemObject(context->fst_mattr_buff_in);
+    if (context->sec_mattr_buff_in)
+        clReleaseMemObject(context->sec_mattr_buff_in);
+    if (context->thr_mattr_buff_out)
+        clReleaseMemObject(context->thr_mattr_buff_out);
+    if (context->kernel)
+        clReleaseKernel(context->kernel);
+    free(context);
 }
 
 struct input_data
@@ -96,6 +108,20 @@ void release_input_data(struct input_data* context)
     free(context);
 }
 
+static inline
+char const* get_mem_type_str(cl_device_local_mem_type t)
+{
+    switch (t)
+    {
+    case CL_LOCAL:
+        return "local";
+    case CL_GLOBAL:
+        return "global";
+    default:
+        return "other";
+    }
+}
+
 /// Setup device for the specified \ref gpu_context
 cl_int select_device(struct gpu_context* context)
 {
@@ -119,11 +145,13 @@ cl_int select_device(struct gpu_context* context)
         return error_code;
     }
 
-    size_t max_warp_sz = 0;
     cl_uint num_devices = 0;
     size_t max_devices = 42;
     cl_device_id device_list[max_devices];
     char device_name[64];
+
+    cl_device_local_mem_type mem_type = CL_NONE;
+    size_t max_work_group_size = 0;
 
     for (size_t i = 0; i < num_platforms; ++i)
     {
@@ -139,26 +167,13 @@ cl_int select_device(struct gpu_context* context)
             if (!context->selected_device)
                 context->selected_device = device_list[j];
 
-            size_t ret_sz;
-            size_t warp_sz;
+            size_t ret_sz = 0;
+            cl_device_local_mem_type cur_mem_type = 0;
+            size_t work_group_size = 0;
 
             error_code = clGetDeviceInfo(
-                device_list[j], CL_DEVICE_NAME, 63, device_name, &ret_sz
-            );
-
-            if (error_code)
-            {
-                clReleaseDevice(device_list[j]);
-                continue;
-            }
-
-            device_name[ret_sz] = '\0';
-
-            fprintf(stderr, "Found device %s\n", device_name);
-
-            error_code = clGetDeviceInfo(
-                device_list[j], CL_DEVICE_WARP_SIZE_NV,
-                sizeof(size_t), &warp_sz, &ret_sz
+                device_list[j], CL_DEVICE_LOCAL_MEM_TYPE,
+                sizeof(cl_device_local_mem_type), &cur_mem_type, &ret_sz
             );
 
             if (error_code)
@@ -168,16 +183,38 @@ cl_int select_device(struct gpu_context* context)
                 continue;
             }
 
-            if (warp_sz > max_warp_sz)
+            error_code = clGetDeviceInfo(
+                device_list[j], CL_DEVICE_MAX_WORK_GROUP_SIZE,
+                sizeof(size_t), &work_group_size, &ret_sz
+            );
+
+            if (error_code)
             {
-                if (context->selected_device)
+                if (context->selected_device != device_list[j])
                     clReleaseDevice(device_list[j]);
+                continue;
+            }
+
+            error_code = clGetDeviceInfo(
+                device_list[j], CL_DEVICE_NAME, 63, device_name, &ret_sz
+            );
+
+            device_name[ret_sz] = '\0';
+            fprintf(
+                stderr,
+                "\tFound device \"%s\": mem type %s, max workgroup size %zu\n",
+                device_name, get_mem_type_str(cur_mem_type), work_group_size
+            );
+
+            if ((mem_type != CL_LOCAL && cur_mem_type == CL_LOCAL)
+                || (cur_mem_type == mem_type
+                    && max_work_group_size < work_group_size))
+            {
+                clReleaseDevice(context->selected_device);
                 context->selected_device = device_list[j];
             }
             else if (context->selected_device != device_list[j])
                 clReleaseDevice(device_list[j]);
-
-            fprintf(stderr, "\tDevice warp size: %zu\n", warp_sz);
         }
     }
 
@@ -188,11 +225,10 @@ cl_int select_device(struct gpu_context* context)
     }
     else
     {
-        cl_uint ret_sz;
-        error_code = clGetDeviceInfo(
+        size_t ret_sz;
+        clGetDeviceInfo(
             context->selected_device, CL_DEVICE_NAME, 63, device_name, &ret_sz
         );
-
         device_name[ret_sz] = '\0';
 
         fprintf(stderr, "Selected device: %s\n", device_name);
