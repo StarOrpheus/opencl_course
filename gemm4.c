@@ -202,7 +202,7 @@ cl_int select_device(struct gpu_context* context)
             device_name[ret_sz] = '\0';
             fprintf(
                 stderr,
-                "\tFound device \"%s\": mem type %s, max workgroup size %zu\n",
+                "Found device \"%s\": mem type %s, max workgroup size %zu\n",
                 device_name, get_mem_type_str(cur_mem_type), work_group_size
             );
 
@@ -212,6 +212,8 @@ cl_int select_device(struct gpu_context* context)
             {
                 clReleaseDevice(context->selected_device);
                 context->selected_device = device_list[j];
+                max_work_group_size = work_group_size;
+                mem_type = cur_mem_type;
             }
             else if (context->selected_device != device_list[j])
                 clReleaseDevice(device_list[j]);
