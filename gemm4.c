@@ -25,7 +25,7 @@ static inline
 void fill_array(float* ptr, size_t cnt)
 {
     for (size_t i = 0; i < cnt; ++i)
-        ptr[i] = (float) i / cnt;
+        ptr[i] = (float) ((double) rand() / (double) (RAND_MAX));
 }
 
 static inline
@@ -52,41 +52,254 @@ char* load_source_file(char const* file_name)
     return program_code;
 }
 
+struct gpu_context
+{
+    cl_device_id        selected_device;
+
+    cl_program          program;
+
+    cl_mem              fst_mattr_buff_in;
+    cl_mem              sec_mattr_buff_in;
+    cl_mem              thr_mattr_buff_out;
+    cl_kernel           kernel;
+};
+
+/// Destructor for \ref gpu_context
+void release_gpu_context(struct gpu_context* context)
+{
+// todo
+}
+
+struct input_data
+{
+    size_t in_A_size; //!< Size in floats
+    size_t in_B_size; //!< Size in floats
+    size_t out_C_size; //!< Size in floats
+
+    float* in_A;
+    float* in_B;
+    float* out_C;
+};
+
+/// Destructor for \ref input_data
+void release_input_data(struct input_data* context)
+{
+    if (!context)
+        return;
+
+    if (context->in_A)
+        free(context->in_A);
+    if (context->in_B)
+        free(context->in_B);
+    if (context->out_C)
+        free(context->out_C);
+    free(context);
+}
+
+/// Setup device for the specified \ref gpu_context
+cl_int select_device(struct gpu_context* context)
+{
+    cl_int error_code;
+    cl_uint num_platforms;
+
+    error_code = clGetPlatformIDs(0, 0, &num_platforms);
+    if (error_code)
+    {
+        fprintf(stderr, "Error getting platforms list!\n");
+        return error_code;
+    }
+
+    cl_platform_id* platforms = calloc(num_platforms, sizeof(cl_platform_id));
+
+    error_code = clGetPlatformIDs(num_platforms, platforms, &num_platforms);
+    if (error_code)
+    {
+        fprintf(stderr, "Error getting platforms list!\n");
+        free(platforms);
+        return error_code;
+    }
+
+    size_t max_warp_sz = 0;
+    cl_uint num_devices = 0;
+    size_t max_devices = 42;
+    cl_device_id device_list[max_devices];
+    char device_name[64];
+
+    for (size_t i = 0; i < num_platforms; ++i)
+    {
+        error_code = clGetDeviceIDs(
+            platforms[i], CL_DEVICE_TYPE_ALL, max_devices, device_list,
+            &num_devices
+        );
+
+        if (error_code) continue;
+
+        for (size_t j = 0; j < num_devices; ++j)
+        {
+            if (!context->selected_device)
+                context->selected_device = device_list[j];
+
+            size_t ret_sz;
+            size_t warp_sz;
+
+            error_code = clGetDeviceInfo(
+                device_list[j], CL_DEVICE_NAME, 63, device_name, &ret_sz
+            );
+
+            if (error_code)
+            {
+                clReleaseDevice(device_list[j]);
+                continue;
+            }
+
+            device_name[ret_sz] = '\0';
+
+            fprintf(stderr, "Found device %s\n", device_name);
+
+            error_code = clGetDeviceInfo(
+                device_list[j], CL_DEVICE_WARP_SIZE_NV,
+                sizeof(size_t), &warp_sz, &ret_sz
+            );
+
+            if (error_code)
+            {
+                if (context->selected_device != device_list[j])
+                    clReleaseDevice(device_list[j]);
+                continue;
+            }
+
+            if (warp_sz > max_warp_sz)
+            {
+                if (context->selected_device)
+                    clReleaseDevice(device_list[j]);
+                context->selected_device = device_list[j];
+            }
+            else if (context->selected_device != device_list[j])
+                clReleaseDevice(device_list[j]);
+
+            fprintf(stderr, "\tDevice warp size: %zu\n", warp_sz);
+        }
+    }
+
+    if (!context->selected_device)
+    {
+        free(platforms);
+        return error_code;
+    }
+    else
+    {
+        cl_uint ret_sz;
+        error_code = clGetDeviceInfo(
+            context->selected_device, CL_DEVICE_NAME, 63, device_name, &ret_sz
+        );
+
+        device_name[ret_sz] = '\0';
+
+        fprintf(stderr, "Selected device: %s\n", device_name);
+    }
+
+    return 0;
+}
+
+/// Loads and compile the kernel for the specified \ref gpu_context
+cl_int load_program(struct gpu_context* context,
+                    char const** sources_list, size_t src_list_sz,
+                    char const* kernel_name)
+{
+    // todo
+    return 0;
+}
+
+/// Setups kernel & kernel structs like mem buffers for the \ref gpu_context
+cl_int setup_kernel(struct gpu_context* context, size_t n, size_t m, size_t k)
+{
+    // todo
+    return 0;
+}
+
+struct gpu_context* setup_gpu_context(size_t n, size_t m, size_t k,
+                                      char const** sources_list,
+                                      size_t src_list_sz,
+                                      char const* kernel_name,
+                                      cl_int* error)
+{
+    assert(error != 0);
+    assert(kernel_name != 0);
+    assert(sources_list != 0);
+
+    *error = 0;
+
+    struct gpu_context* const context = calloc(1, sizeof(struct gpu_context));
+
+    *error = select_device(context);
+    if (*error)
+        goto return_error;
+
+    *error = load_program(context, sources_list, src_list_sz, kernel_name);
+    if (*error)
+        goto return_error;
+
+    *error = setup_kernel(context, n, m, k);
+    if (*error)
+        goto return_error;
+
+    return context;
+
+return_error:
+    release_gpu_context(context);
+    return NULL;
+}
+
+struct input_data* generate_input(size_t n, size_t m, size_t k)
+{
+    struct input_data* data = calloc(1, sizeof(struct input_data));
+
+    data->in_A_size = n * m;
+    data->in_B_size = m * k;
+    data->out_C_size = n * k;
+
+    data->in_A = calloc(data->in_A_size, sizeof(float));
+    data->in_B = calloc(data->in_B_size, sizeof(float));
+    data->out_C = calloc(data->out_C_size, sizeof(float));
+
+    if (!data->in_A || !data->in_B || !data->out_C)
+        goto error_return;
+
+    fill_array(data->in_A, data->in_A_size);
+    fill_array(data->in_B, data->in_B_size);
+
+    return data;
+
+error_return:
+    release_input_data(data);
+    return NULL;
+}
+
 int main()
 {
     /// n, m, k are expected to be divisible by tile_size.
     size_t const n = 2048;
-    size_t const m = 2048 + 32;
-    size_t const k = 2048 + 64;
+    size_t const m = 512;
+    size_t const k = 1024;
 
-    size_t const array_mem_sz1 = n * m * sizeof(float);
-    size_t const array_mem_sz2 = m * k * sizeof(float);
-    size_t const array_mem_sz3 = n * k * sizeof(float);
-
-    char const* const kernel_file_name = "gemm4.cl";
-    char const* const kernel_name = "gemm4";
-
-    float* const a = (float*) malloc(array_mem_sz1);
-    float* const b = (float*) malloc(array_mem_sz2);
-    float* const c = (float*) malloc(array_mem_sz3);
-
-    if (!a || !b || !c)
-    {
-        perror("Mem alloc failed");
-        goto release_matrixes;
-    }
-
-    fill_array(a, n * m);
-    fill_array(b, m * k);
+    char const* const   kernel_file_name = "gemm4.cl";
+    char const* const   kernel_name = "gemm4";
 
     int exit_code = 0;
     cl_int error_code;
-    cl_uint num_platforms;
+
+    struct gpu_context* context = setup_gpu_context(
+        n, m, k, "", 0, kernel_name, &error_code
+    );
+
+    release_gpu_context(context);
+    return 0;
+/*
     error_code = clGetPlatformIDs(0, 0, &num_platforms);
     CHECK_ERR("Error getting platforms list", error_code, release_matrixes);
 
-    cl_platform_id * const platforms
-        = (cl_platform_id *) malloc(num_platforms * sizeof(cl_platform_id));
+//    cl_platform_id * const platforms
+//        = (cl_platform_id *) malloc(num_platforms * sizeof(cl_platform_id));
 
     error_code = clGetPlatformIDs(num_platforms, platforms, &num_platforms);
     CHECK_ERR("Error getting platforms list", error_code, release_platforms);
@@ -98,6 +311,14 @@ int main()
     );
     CHECK_ERR("Error getting device list", error_code, release_platforms);
 
+    if (!num_devices)
+    {
+        error_code = clGetDeviceIDs (
+            platforms[0], CL_DEVICE_TYPE_CPU,  // using platform[0] as default platform
+            0, 0, &num_devices
+        );
+    }
+
     cl_device_id * const gpu_devices
         = (cl_device_id *) malloc(num_devices * sizeof(cl_device_id));
 
@@ -107,13 +328,6 @@ int main()
     );
 
     CHECK_ERR("Error getting device list", error_code, release_devices);
-
-    if (!num_devices)
-    {
-        puts("No GPU devices found :'(");
-        free(platforms);
-        return -1;
-    }
 
     char device_name[128];
     size_t device_name_len;
@@ -271,4 +485,5 @@ release_matrixes:
     free(b);
     free(c);
     return exit_code;
+    */
 }
