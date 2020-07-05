@@ -464,7 +464,7 @@ void validate_result(struct input_data* data)
 int main()
 {
     /// n, m, k are expected to be divisible by tile_size.
-    size_t const n = TILE_SIZE;
+    size_t const n = SCAN_TILE_SIZE;
 
     char const* const   kernel_name = "par_scan";
     char const* const   sources_list[] =
@@ -501,7 +501,8 @@ int main()
         context->command_queue, context->kernel, 1, NULL, work_size, work_size,
         0, 0, &run_event
     );
-    CHECK_ERR("Error enquing kernel", error_code, return_error);
+    CHECK_ERR("Error enqueuing kernel", error_code, return_error);
+
     clEnqueueReadBuffer(
         context->command_queue, context->result_array_buf, true, 0,
         n * sizeof(float), data->out_B, 0, 0, 0
