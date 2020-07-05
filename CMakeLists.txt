@@ -23,3 +23,9 @@ target_link_libraries(opencl_fun_gemm3 OpenCL)
 
 add_executable(opencl_fun_gemm4 gemm4.c)
 target_link_libraries(opencl_fun_gemm4 OpenCL)
+
+add_executable(opencl_fun_parallel_scan par_scan.c)
+target_link_libraries(opencl_fun_parallel_scan OpenCL -lm)
+
+add_executable(opencl_fun_parallel_scan2 par_scan2.c)
+target_link_libraries(opencl_fun_parallel_scan2 OpenCL -lm)
